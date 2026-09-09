@@ -1,0 +1,114 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "btw"
+version = "0.1.0"
+description = "Downstream Bulk Transcriptomics Workbench for Python & Jupyter"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Bioinformatics & Transcriptomics Workbench Team" }
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "numpy>=1.23.0",
+    "pandas>=2.0.0",
+    "scipy>=1.10.0",
+    "scikit-learn>=1.2.0",
+    "statsmodels>=0.14.0",
+    "pydeseq2>=0.4.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "plotly>=5.14.0",
+    "adjustText>=0.8.0",
+    "upsetplot>=0.8.0",
+    "loguru>=0.7.0",
+    "pyyaml>=6.0",
+    "joblib>=1.3.0",
+    "openpyxl>=3.1.0",
+    "pyarrow>=12.0.0",
+]
+
+[project.optional-dependencies]
+enrichment = [
+    "gseapy>=1.0.0",
+    "goatools>=1.3.0",
+    "decoupler>=1.5.0",
+]
+annotation = [
+    "mygene>=3.2.0",
+    "pybiomart>=0.2.0",
+    "gtfparse>=2.0.0",
+]
+network = [
+    "PyWGCNA>=3.0.0",
+    "networkx>=3.0",
+]
+batch = [
+    "inmoose>=0.5.0",
+]
+notebooks = [
+    "jupyterlab>=4.0.0",
+    "ipywidgets>=8.0.0",
+    "papermill>=2.4.0",
+    "jupytext>=1.15.0",
+]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "black>=23.7.0",
+    "isort>=5.12.0",
+    "pre-commit>=3.3.0",
+]
+all = [
+    "btw[enrichment,annotation,network,batch,notebooks,dev]"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --strict-markers"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    ".venv",
+    ".pixi",
+    "notebooks/.ipynb_checkpoints",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = ["E501", "B008"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]

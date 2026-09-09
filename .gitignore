@@ -1,0 +1,44 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Virtual environments & pixi
+.pixi/
+.venv/
+env/
+venv/
+
+# Jupyter Notebook checkpoints & caches
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# Pytest / coverage caches
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Log and temp files
+*.log
+.ruff_cache/
+.mypy_cache/
+
+# Local data & models
+data/
+results/
+scratch/
+*.parquet
+*.h5ad
+*.sqlite
+.cache_*/
+
+# OS specific files
+.DS_Store
+Thumbs.db

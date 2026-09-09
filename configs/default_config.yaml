@@ -1,0 +1,39 @@
+project:
+  name: "Bulk Transcriptomics Workbench"
+  version: "0.1.0"
+  random_seed: 42
+
+qc:
+  min_library_size: 100000
+  min_detected_genes: 500
+  min_count_per_gene: 10
+  min_samples_expressing: 3
+
+normalization:
+  method: "deseq2"
+  fit_type: "parametric"  # parametric | mean | local
+
+de_analysis:
+  design_factor: "condition"
+  reference_level: "control"
+  alpha: 0.05
+  lfc_threshold: 1.0  # log2 fold change threshold (absolute)
+  padj_method: "fdr_bh"  # statsmodels multiple testing
+
+visualization:
+  style: "nature"  # nature | cell | classic
+  dpi: 300
+  font_family: "sans-serif"
+  volcano:
+    top_n_genes: 15
+    padj_threshold: 0.05
+    log2fc_threshold: 1.0
+  heatmap:
+    top_n_variable_genes: 50
+    cluster_rows: true
+    cluster_cols: true
+    scale: "zscore"
+
+caching:
+  enabled: true
+  cache_dir: ".btw_cache"

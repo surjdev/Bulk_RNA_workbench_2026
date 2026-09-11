@@ -5,10 +5,10 @@ Computes pathway activities (PROGENy) and transcription factor activities (Colle
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 
-import numpy as np
 import pandas as pd
+
 from btw import logger
 from btw.de_analysis.correction import adjust_pvalues
 from btw.de_analysis.deseq_helper import DEResult
@@ -16,6 +16,7 @@ from btw.enrichment.schema import EnrichmentResult, standardize_enrichment_table
 
 try:
     import decoupler as dc
+
     HAS_DECOUPLER = True
 except ImportError:
     HAS_DECOUPLER = False
@@ -59,7 +60,9 @@ def prepare_decoupler_input(
     mat = pd.DataFrame([series.values], index=[row_id], columns=series.index)
     mat.columns = mat.columns.astype(str)
 
-    logger.info(f"Prepared decoupler input matrix: {mat.shape[0]} contrast x {mat.shape[1]} genes (metric='{metric_col}').")
+    logger.info(
+        f"Prepared decoupler input matrix: {mat.shape[0]} contrast x {mat.shape[1]} genes (metric='{metric_col}')."
+    )
     return mat
 
 
@@ -98,21 +101,29 @@ def run_decoupler_activity(
         Standardized enrichment table containing activity scores and p-values.
     """
     if not HAS_DECOUPLER:
-        raise ImportError("decoupler package is required for activity inference. Run pip install decoupler.")
+        raise ImportError(
+            "decoupler package is required for activity inference. Run pip install decoupler."
+        )
 
     # Validate network columns
     required_cols = {"source", "target", "weight"}
     if not required_cols.issubset(net.columns):
-        raise ValueError(f"Network DataFrame must contain columns: {required_cols}. Found: {list(net.columns)}")
+        raise ValueError(
+            f"Network DataFrame must contain columns: {required_cols}. Found: {list(net.columns)}"
+        )
 
     method_lower = method.lower()
-    logger.info(f"Running decoupler method='{method_lower}' on {mat.shape[1]} genes against {len(net)} network edges...")
+    logger.info(
+        f"Running decoupler method='{method_lower}' on {mat.shape[1]} genes against {len(net)} network edges..."
+    )
 
     if hasattr(dc, "mt"):
         # decoupler >= 2.0
         method_func = getattr(dc.mt, method_lower, None)
         if method_func is None:
-            raise ValueError(f"Unsupported decoupler method '{method}'. Valid: 'ulm', 'mlm', 'ora'.")
+            raise ValueError(
+                f"Unsupported decoupler method '{method}'. Valid: 'ulm', 'mlm', 'ora'."
+            )
         acts, pvals = method_func(mat, net, tmin=min_n, verbose=False, **method_kwargs)
     elif hasattr(dc, f"run_{method_lower}"):
         # decoupler < 2.0

@@ -5,15 +5,16 @@ Provides side-by-side PCA comparisons and quantitative batch silhouette metrics.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from btw import logger
-from btw.viz.style import PALETTES, set_publication_style
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
+
+from btw import logger
+from btw.viz.style import PALETTES, set_publication_style
 
 
 def evaluate_batch_effect(
@@ -192,24 +193,46 @@ def compare_pca_batch(
     # Legends
     # Batch legend (color)
     batch_handles = [
-        plt.Line2D([0], [0], marker="o", color="w", markerfacecolor=batch_color_map[b], markersize=9, label=f"Batch: {b}")
+        plt.Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=batch_color_map[b],
+            markersize=9,
+            label=f"Batch: {b}",
+        )
         for b in unique_batches
     ]
     cond_handles = []
     if condition_col:
         cond_handles = [
-            plt.Line2D([0], [0], marker=cond_marker_map[c], color="w", markerfacecolor="#555555", markersize=9, label=f"{c}")
+            plt.Line2D(
+                [0],
+                [0],
+                marker=cond_marker_map[c],
+                color="w",
+                markerfacecolor="#555555",
+                markersize=9,
+                label=f"{c}",
+            )
             for c in unique_conds
         ]
 
-    ax2.legend(handles=batch_handles + cond_handles, loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=True)
+    ax2.legend(
+        handles=batch_handles + cond_handles,
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
+        frameon=True,
+    )
     fig.suptitle(title_prefix, fontsize=13, fontweight="bold", y=0.98)
     fig.tight_layout()
 
     combined_metrics = {
         "before": metrics_before,
         "after": metrics_after,
-        "batch_silhouette_reduction": metrics_before["batch_silhouette"] - metrics_after["batch_silhouette"],
+        "batch_silhouette_reduction": metrics_before["batch_silhouette"]
+        - metrics_after["batch_silhouette"],
     }
     logger.info(
         f"Batch QC: Silhouette reduced from {metrics_before['batch_silhouette']:.3f} to {metrics_after['batch_silhouette']:.3f}."

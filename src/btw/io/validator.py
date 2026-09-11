@@ -6,21 +6,24 @@ Validates count matrices and sample metadata schemas according to FR-1.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
+
 from btw import logger
 
 
 class ValidationError(ValueError):
     """Raised when bulk RNA-seq input data violates required schema or integrity constraints."""
+
     pass
 
 
 @dataclass
 class ValidationReport:
     """Summary report of data integrity and schema validation checks."""
+
     is_valid: bool
     n_genes: int
     n_samples: int
@@ -87,12 +90,18 @@ def validate_bulk_data(
     # 1. Type and dimension checks
     if not isinstance(counts, pd.DataFrame):
         errors.append(f"`counts` must be a pandas DataFrame, got {type(counts).__name__}")
-        return ValidationReport(is_valid=False, n_genes=0, n_samples=0, sample_ids=[], errors=errors)
+        return ValidationReport(
+            is_valid=False, n_genes=0, n_samples=0, sample_ids=[], errors=errors
+        )
 
     if not isinstance(metadata, pd.DataFrame):
         errors.append(f"`metadata` must be a pandas DataFrame, got {type(metadata).__name__}")
         return ValidationReport(
-            is_valid=False, n_genes=counts.shape[0], n_samples=counts.shape[1], sample_ids=[], errors=errors
+            is_valid=False,
+            n_genes=counts.shape[0],
+            n_samples=counts.shape[1],
+            sample_ids=[],
+            errors=errors,
         )
 
     if counts.empty:
@@ -124,16 +133,15 @@ def validate_bulk_data(
     meta_df = metadata.copy()
     if sample_id_col is not None:
         if sample_id_col not in meta_df.columns:
-            errors.append(f"Specified `sample_id_col` '{sample_id_col}' not found in metadata columns.")
+            errors.append(
+                f"Specified `sample_id_col` '{sample_id_col}' not found in metadata columns."
+            )
         else:
             meta_df = meta_df.set_index(sample_id_col)
 
     if meta_df.index.duplicated().any():
         dup_samples = list(meta_df.index[meta_df.index.duplicated()][:5])
         errors.append(f"Duplicate sample IDs found in metadata index (e.g. {dup_samples}).")
-
-    count_samples = [str(col) for col in counts.columns]
-    meta_samples = [str(idx) for idx in meta_df.index]
 
     # Normalize column/index names to strings for reliable matching
     counts_norm = counts.copy()
@@ -161,7 +169,9 @@ def validate_bulk_data(
     # 5. Missing / NaN values check in counts
     nan_count = counts_norm.isna().sum().sum()
     if nan_count > 0:
-        errors.append(f"Count matrix contains {nan_count} NaN/null values. Impute or filter before analysis.")
+        errors.append(
+            f"Count matrix contains {nan_count} NaN/null values. Impute or filter before analysis."
+        )
 
     # 6. Negative values check
     numeric_counts = counts_norm.select_dtypes(include=[np.number])
@@ -170,7 +180,9 @@ def validate_bulk_data(
     else:
         if (numeric_counts < 0).any().any():
             neg_count = (numeric_counts < 0).sum().sum()
-            errors.append(f"Count matrix contains {neg_count} negative values. Raw counts must be >= 0.")
+            errors.append(
+                f"Count matrix contains {neg_count} negative values. Raw counts must be >= 0."
+            )
 
         # 7. Non-integer check (for raw counts)
         if not allow_float:
@@ -182,7 +194,9 @@ def validate_bulk_data(
                 )
 
     # 8. All-zero genes warning
-    all_zero_genes = (numeric_counts == 0).all(axis=1).sum() if numeric_counts.shape == counts_norm.shape else 0
+    all_zero_genes = (
+        (numeric_counts == 0).all(axis=1).sum() if numeric_counts.shape == counts_norm.shape else 0
+    )
     if all_zero_genes > 0:
         warnings.append(
             f"{all_zero_genes} genes have zero counts across all samples ({all_zero_genes / len(counts_norm) * 100:.1f}%)."

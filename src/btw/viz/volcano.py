@@ -10,18 +10,20 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from btw import logger
+
 from btw.de_analysis.deseq_helper import DEResult
 from btw.viz.style import REGULATION_COLORS, set_publication_style
 
 try:
     from adjustText import adjust_text
+
     HAS_ADJUST_TEXT = True
 except ImportError:
     HAS_ADJUST_TEXT = False
 
 try:
     import plotly.graph_objects as go
+
     HAS_PLOTLY = True
 except ImportError:
     HAS_PLOTLY = False
@@ -120,11 +122,17 @@ def plot_volcano(
     # -------------------------------------------------------------
     if interactive:
         if not HAS_PLOTLY:
-            raise ImportError("plotly is required for interactive volcano plots. Run pip install plotly.")
+            raise ImportError(
+                "plotly is required for interactive volcano plots. Run pip install plotly."
+            )
 
         fig = go.Figure()
 
-        for status, color in [("NS", palette["NS"]), ("DOWN", palette["DOWN"]), ("UP", palette["UP"])]:
+        for status, color in [
+            ("NS", palette["NS"]),
+            ("DOWN", palette["DOWN"]),
+            ("UP", palette["UP"]),
+        ]:
             sub = plot_df[plot_df["status"] == status]
             count = len(sub)
             fig.add_trace(

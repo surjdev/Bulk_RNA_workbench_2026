@@ -5,11 +5,11 @@ Integrates gseapy.enrichr and goatools with custom background gene sets and offl
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Union
 
-import numpy as np
 import pandas as pd
 from scipy.stats import fisher_exact
+
 from btw import logger
 from btw.de_analysis.correction import adjust_pvalues
 from btw.de_analysis.deseq_helper import DEResult
@@ -17,12 +17,14 @@ from btw.enrichment.schema import EnrichmentResult, standardize_enrichment_table
 
 try:
     import gseapy as gp
+
     HAS_GSEAPY = True
 except ImportError:
     HAS_GSEAPY = False
 
 try:
-    import goatools
+    import goatools  # noqa: F401
+
     HAS_GOATOOLS = True
 except ImportError:
     HAS_GOATOOLS = False
@@ -62,7 +64,11 @@ def extract_significant_genes(
             return list(de_data.get_degs(padj_cutoff, lfc_cutoff).index)
 
     df = de_data
-    is_sig = (df["padj"].notna()) & (df["padj"] <= padj_cutoff) & (df["log2FoldChange"].abs() >= lfc_cutoff)
+    is_sig = (
+        (df["padj"].notna())
+        & (df["padj"] <= padj_cutoff)
+        & (df["log2FoldChange"].abs() >= lfc_cutoff)
+    )
     if direction == "up":
         mask = is_sig & (df["log2FoldChange"] > 0)
     elif direction == "down":
@@ -275,5 +281,126 @@ def run_enrichr(
             raw_output=enr,
         )
     except Exception as e:
-        logger.warning(f"gseapy.enrichr encountered error ({e}); check network connectivity or parameters.")
+        logger.warning(
+            f"gseapy.enrichr encountered error ({e}); check network connectivity or parameters."
+        )
         raise
+
+
+def run_clusterprofiler(
+    gene_list: Union[List[str], DEResult, pd.DataFrame],
+    org_db: str = "org.Hs.eg.db",
+    key_type: str = "SYMBOL",
+    ont: str = "BP",
+    pvalue_cutoff: float = 0.05,
+    qvalue_cutoff: float = 0.2,
+    background: Optional[List[str]] = None,
+    padj_cutoff: float = 0.05,
+    lfc_cutoff: float = 1.0,
+    direction: str = "both",
+    fallback_to_python: bool = True,
+    fallback_gene_sets: Union[str, Dict[str, List[str]]] = "KEGG_2021_Human",
+    **kwargs,
+) -> EnrichmentResult:
+    """
+    Execute Over-Representation Analysis (ORA) using R Bioconductor clusterProfiler::enrichGO (FR-5 & FR-10).
+    If clusterProfiler or org_db is unavailable and fallback_to_python=True, gracefully falls back to Python ORA.
+
+    Parameters
+    ----------
+    gene_list : list of str, DEResult, or pd.DataFrame
+        Significant gene identifiers or DE analysis result object.
+    org_db : str, default='org.Hs.eg.db'
+        Bioconductor organism annotation database package name.
+    key_type : str, default='SYMBOL'
+        Identifier type ('SYMBOL', 'ENSEMBL', 'ENTREZID').
+    ont : str, default='BP'
+        Gene ontology sub-ontology: 'BP' (Biological Process), 'MF' (Molecular Function), 'CC' (Cellular Component).
+    pvalue_cutoff : float, default=0.05
+        P-value threshold.
+    qvalue_cutoff : float, default=0.2
+        Q-value threshold.
+    background : list of str, optional
+        Custom universe of background genes.
+    padj_cutoff : float, default=0.05
+        Cutoff when extracting genes from DE result.
+    lfc_cutoff : float, default=1.0
+        Log2FC cutoff when extracting genes from DE result.
+    direction : {'both', 'up', 'down'}, default='both'
+        Regulation filter when extracting genes.
+    fallback_to_python : bool, default=True
+        Whether to fall back to Python Enrichr / Fisher exact test if clusterProfiler or R is unavailable.
+    fallback_gene_sets : str or dict, default='KEGG_2021_Human'
+        Gene sets to use if falling back to Python.
+    **kwargs
+        Additional arguments forwarded to fallback function or clusterProfiler.
+
+    Returns
+    -------
+    EnrichmentResult
+        Standardized enrichment container.
+    """
+    if isinstance(gene_list, (DEResult, pd.DataFrame)):
+        sig_genes = extract_significant_genes(
+            gene_list, padj_cutoff=padj_cutoff, lfc_cutoff=lfc_cutoff, direction=direction
+        )
+        logger.info(
+            f"Extracted {len(sig_genes)} significant genes ({direction}) from DE results for clusterProfiler."
+        )
+    else:
+        sig_genes = list(gene_list)
+
+    if not sig_genes:
+        logger.warning("Empty gene list provided for clusterProfiler ORA analysis.")
+        empty_std = standardize_enrichment_table(pd.DataFrame(), source_method="R_clusterProfiler")
+        return EnrichmentResult(
+            results_df=empty_std,
+            source_method="R_clusterProfiler",
+            gene_set_database=f"{org_db}_{ont}",
+            alpha=pvalue_cutoff,
+        )
+
+    try:
+        from btw.r_interop.bridge import check_r_package, is_r_available, require_r_package
+
+        if is_r_available() and check_r_package("clusterProfiler") and check_r_package(org_db):
+            from btw.r_interop.clusterprofiler_r import run_r_clusterprofiler
+
+            return run_r_clusterprofiler(
+                gene_list=sig_genes,
+                org_db=org_db,
+                key_type=key_type,
+                ont=ont,
+                pvalue_cutoff=pvalue_cutoff,
+                qvalue_cutoff=qvalue_cutoff,
+                background=background,
+            )
+        else:
+            if not fallback_to_python:
+                require_r_package(
+                    "clusterProfiler", purpose="Bioconductor GO/KEGG Enrichment Analysis (FR-5)"
+                )
+            logger.info(
+                f"R package 'clusterProfiler' or '{org_db}' not available; falling back to Python ORA."
+            )
+    except Exception as e:
+        if not fallback_to_python:
+            raise e
+        logger.info(f"clusterProfiler execution failed ({e}); falling back to Python ORA.")
+
+    # Fallback to Python
+    if isinstance(fallback_gene_sets, dict):
+        bg_list = list(background) if isinstance(background, (list, set)) else None
+        return run_custom_ora(
+            sig_genes, fallback_gene_sets, background=bg_list, alpha=pvalue_cutoff
+        )
+    else:
+        return run_enrichr(
+            sig_genes,
+            gene_sets=fallback_gene_sets,
+            background=background,
+            padj_cutoff=padj_cutoff,
+            lfc_cutoff=lfc_cutoff,
+            direction=direction,
+            **kwargs,
+        )

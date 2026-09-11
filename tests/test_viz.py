@@ -3,11 +3,11 @@ Unit tests for Publication-Grade Visualization module (FR-4).
 """
 
 import matplotlib
+
 matplotlib.use("Agg")  # Non-interactive backend for testing
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import pytest
+
 from btw.de_analysis import run_de, run_multiple_contrasts
 from btw.viz import (
     compute_pca,

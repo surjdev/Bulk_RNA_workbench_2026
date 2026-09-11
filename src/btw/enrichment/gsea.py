@@ -5,16 +5,18 @@ Prepares ranked gene lists from DE metrics and wraps gseapy.prerank with MSigDB 
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+
 from btw import logger
 from btw.de_analysis.deseq_helper import DEResult
 from btw.enrichment.schema import EnrichmentResult, standardize_enrichment_table
 
 try:
     import gseapy as gp
+
     HAS_GSEAPY = True
 except ImportError:
     HAS_GSEAPY = False
@@ -54,7 +56,9 @@ def prepare_ranked_gene_list(
 
     if rank_by_lower in ["stat", "wald"]:
         if "stat" not in df.columns:
-            raise KeyError("Column 'stat' missing from DE data. Use rank_by='log2FoldChange' instead.")
+            raise KeyError(
+                "Column 'stat' missing from DE data. Use rank_by='log2FoldChange' instead."
+            )
         scores = df["stat"].astype(float)
     elif rank_by_lower in ["log2foldchange", "lfc", "log2fc"]:
         if "log2FoldChange" not in df.columns:
@@ -62,13 +66,17 @@ def prepare_ranked_gene_list(
         scores = df["log2FoldChange"].astype(float)
     elif rank_by_lower in ["signed_pvalue", "signal"]:
         if "pvalue" not in df.columns or "log2FoldChange" not in df.columns:
-            raise KeyError("Columns 'pvalue' and 'log2FoldChange' required for signed_pvalue ranking.")
+            raise KeyError(
+                "Columns 'pvalue' and 'log2FoldChange' required for signed_pvalue ranking."
+            )
         pvals = np.clip(df["pvalue"].values.astype(float), 1e-300, 1.0)
         neg_log10 = -np.log10(pvals)
         sign = np.sign(df["log2FoldChange"].values.astype(float))
         scores = pd.Series(sign * neg_log10, index=df.index)
     else:
-        raise ValueError(f"Unknown ranking metric '{rank_by}'. Choose from 'stat', 'log2FoldChange', 'signed_pvalue'.")
+        raise ValueError(
+            f"Unknown ranking metric '{rank_by}'. Choose from 'stat', 'log2FoldChange', 'signed_pvalue'."
+        )
 
     scores.name = "ranking_metric"
     scores.index = scores.index.astype(str)

@@ -9,6 +9,7 @@ from typing import List, Optional, Union
 
 import numpy as np
 import pandas as pd
+
 from btw import logger
 
 try:
@@ -25,11 +26,13 @@ def run_combat(
     metadata: Optional[pd.DataFrame] = None,
     biological_factor: Optional[Union[str, List[str], pd.Series]] = None,
     is_count: Optional[bool] = None,
+    engine: str = "r",
+    fallback_to_python: bool = True,
     **combat_kwargs,
 ) -> pd.DataFrame:
     """
     Apply ComBat (for continuous/normalized data) or ComBat-Seq (for integer RNA-Seq count data)
-    to adjust for technical batch effects.
+    to adjust for technical batch effects. Supports both reference R sva::ComBat and Python inmoose engines.
 
     Parameters
     ----------
@@ -44,16 +47,53 @@ def run_combat(
     is_count : bool, optional
         If True, runs ComBat-Seq (negative binomial GLM). If False, runs parametric ComBat.
         If None, automatically detected based on whether data contains integers.
+    engine : str, default='r'
+        'r' (calls R sva::ComBat via rpy2) or 'python' (inmoose).
+    fallback_to_python : bool, default=True
+        Whether to fall back to Python inmoose if R package sva is not installed.
     **combat_kwargs
-        Additional arguments passed to inmoose.pycombat_seq or inmoose.pycombat_norm.
+        Additional arguments passed to engine.
 
     Returns
     -------
     pd.DataFrame
         Batch-corrected expression matrix matching the input shape and index orientation.
     """
+    used_engine = engine.lower()
+
+    if used_engine == "r":
+        try:
+            from btw.r_interop.bridge import check_r_package, require_r_package
+
+            if check_r_package("sva"):
+                from btw.r_interop.combat_r import run_r_combat
+
+                return run_r_combat(
+                    data=data,
+                    batch=batch,
+                    metadata=metadata,
+                    biological_factor=biological_factor,
+                    is_count=is_count,
+                )
+            else:
+                if not fallback_to_python:
+                    require_r_package("sva", purpose="Reference ComBat batch correction (FR-7)")
+                logger.info(
+                    "R package 'sva' not found in R library; falling back to Python inmoose engine per SRS v2."
+                )
+                used_engine = "python"
+        except Exception as e:
+            if not fallback_to_python:
+                raise e
+            logger.info(
+                f"R ComBat execution encountered error ({e}); falling back to Python inmoose engine."
+            )
+            used_engine = "python"
+
     if not HAS_INMOOSE:
-        raise ImportError("inmoose package is required for ComBat batch correction. Run pip install inmoose.")
+        raise ImportError(
+            "inmoose package is required for Python ComBat batch correction. Run pip install inmoose."
+        )
 
     df = data.copy()
 
@@ -76,12 +116,16 @@ def run_combat(
         batch_series = metadata.loc[samples, batch]
         batch_vec = batch_series.tolist()
     elif isinstance(batch, pd.Series):
-        batch_vec = batch.loc[samples].tolist() if set(samples).issubset(batch.index) else batch.tolist()
+        batch_vec = (
+            batch.loc[samples].tolist() if set(samples).issubset(batch.index) else batch.tolist()
+        )
     else:
         batch_vec = list(batch)
 
     if len(batch_vec) != n_samples:
-        raise ValueError(f"Batch vector length ({len(batch_vec)}) does not match number of samples ({n_samples}).")
+        raise ValueError(
+            f"Batch vector length ({len(batch_vec)}) does not match number of samples ({n_samples})."
+        )
 
     # Resolve biological covariate model
     covar_mod = None
@@ -101,7 +145,9 @@ def run_combat(
         # Sample non-null values to test if they are integer counts
         sample_vals = df.iloc[: min(20, n_genes), : min(10, n_samples)].values
         is_count = bool(np.all(np.equal(np.mod(sample_vals, 1), 0)) and np.all(sample_vals >= 0))
-        logger.info(f"Auto-detected data type: {'integer counts (ComBat-Seq)' if is_count else 'normalized/continuous (ComBat)'}")
+        logger.info(
+            f"Auto-detected data type: {'integer counts (ComBat-Seq)' if is_count else 'normalized/continuous (ComBat)'}"
+        )
 
     if is_count:
         logger.info(f"Executing ComBat-Seq on {n_genes} genes across {n_samples} samples...")

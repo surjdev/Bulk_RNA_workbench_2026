@@ -10,8 +10,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 import pandas as pd
+
 from btw import logger
-from btw.de_analysis.deseq_helper import DEResult, build_deseq_dataset, run_deseq_stats
+from btw.de_analysis.deseq_helper import DEResult, build_deseq_dataset, run_de, run_deseq_stats
 from btw.io.exporter import export_excel_multisheet
 
 
@@ -27,6 +28,7 @@ class MultiContrastResult:
     Container consolidating multiple Differential Expression comparisons.
     Provides cross-contrast DEG queries, summary tables, and unified export.
     """
+
     contrasts: Dict[str, DEResult] = field(default_factory=dict)
     master_table: Optional[pd.DataFrame] = None
 
@@ -135,10 +137,14 @@ def run_multiple_contrasts(
     design_factors: Optional[Union[str, List[str]]] = None,
     alpha: float = 0.05,
     lfc_threshold: float = 1.0,
+    engine: str = "r",
+    method: str = "deseq2",
+    fallback_to_python: bool = True,
     **kwargs,
 ) -> MultiContrastResult:
     """
     Execute multiple differential expression contrasts in batch and assemble a master table.
+    Supports both reference R engines (DESeq2, limma) and Python PyDESeq2 engine.
 
     Parameters
     ----------
@@ -154,8 +160,14 @@ def run_multiple_contrasts(
         Significance threshold.
     lfc_threshold : float, default=1.0
         Log2 fold change threshold.
+    engine : str, default='r'
+        'r' (calls R DESeq2/limma via rpy2) or 'python' (PyDESeq2).
+    method : str, default='deseq2'
+        'deseq2', 'limma_voom', or 'limma_trend'.
+    fallback_to_python : bool, default=True
+        Whether to fall back to PyDESeq2 if R packages are missing.
     **kwargs
-        Additional arguments passed to PyDESeq2.
+        Additional arguments passed to engine.
 
     Returns
     -------
@@ -172,34 +184,54 @@ def run_multiple_contrasts(
     else:
         design = design_factors
 
-    logger.info(f"Preparing shared DeseqDataSet for {len(contrasts)} contrast(s)...")
-    dds = build_deseq_dataset(
-        counts=counts,
-        metadata=metadata,
-        design_factors=design,
-        fit_model=True,
-        **kwargs,
-    )
-
     results_dict: Dict[str, DEResult] = {}
     master_cols = []
 
-    for c in contrasts:
-        name = _format_contrast_name(c)
-        logger.info(f"Running contrast: {name} {c}")
-        de_res = run_deseq_stats(
-            dds=dds,
-            contrast=c,
-            alpha=alpha,
-            lfc_threshold=lfc_threshold,
+    # If pure Python engine requested explicitly
+    if engine.lower() == "python":
+        logger.info(f"Preparing shared PyDESeq2 DeseqDataSet for {len(contrasts)} contrast(s)...")
+        dds = build_deseq_dataset(
+            counts=counts,
+            metadata=metadata,
+            design_factors=design,
+            fit_model=True,
             **kwargs,
         )
-        results_dict[name] = de_res
-
-        # Format columns for master table
-        c_df = de_res.results_df[["log2FoldChange", "padj", "regulation"]].copy()
-        c_df.columns = [f"{col}_{name}" for col in c_df.columns]
-        master_cols.append(c_df)
+        for c in contrasts:
+            name = _format_contrast_name(c)
+            logger.info(f"Running contrast: {name} {c}")
+            de_res = run_deseq_stats(
+                dds=dds,
+                contrast=c,
+                alpha=alpha,
+                lfc_threshold=lfc_threshold,
+                **kwargs,
+            )
+            results_dict[name] = de_res
+            c_df = de_res.results_df[["log2FoldChange", "padj", "regulation"]].copy()
+            c_df.columns = [f"{col}_{name}" for col in c_df.columns]
+            master_cols.append(c_df)
+    else:
+        # R engine per contrast (or fallback handled inside run_de)
+        for c in contrasts:
+            name = _format_contrast_name(c)
+            logger.info(f"Running contrast via run_de (engine={engine}): {name} {c}")
+            de_res = run_de(
+                counts=counts,
+                metadata=metadata,
+                contrast=c,
+                design_factors=design,
+                alpha=alpha,
+                lfc_threshold=lfc_threshold,
+                engine=engine,
+                method=method,
+                fallback_to_python=fallback_to_python,
+                **kwargs,
+            )
+            results_dict[name] = de_res
+            c_df = de_res.results_df[["log2FoldChange", "padj", "regulation"]].copy()
+            c_df.columns = [f"{col}_{name}" for col in c_df.columns]
+            master_cols.append(c_df)
 
     # Combine into master table
     master_df = pd.concat(master_cols, axis=1)

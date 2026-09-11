@@ -7,9 +7,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Optional, Union
 
 import yaml
+
 from btw import logger
 
 
@@ -25,6 +26,8 @@ class QCConfig:
 class NormalizationConfig:
     method: str = "deseq2"
     fit_type: str = "parametric"
+    engine: str = "r"
+    fallback_to_python: bool = True
 
 
 @dataclass
@@ -34,6 +37,23 @@ class DEConfig:
     alpha: float = 0.05
     lfc_threshold: float = 1.0
     padj_method: str = "fdr_bh"
+    engine: str = "r"
+    method: str = "deseq2"
+    shrink_lfc: bool = True
+    shrink_type: str = "apeglm"
+    fallback_to_python: bool = True
+
+
+@dataclass
+class BatchConfig:
+    engine: str = "r"
+    fallback_to_python: bool = True
+
+
+@dataclass
+class NetworkConfig:
+    engine: str = "r"
+    fallback_to_python: bool = True
 
 
 @dataclass
@@ -53,6 +73,8 @@ class AppConfig:
     qc: QCConfig = field(default_factory=QCConfig)
     normalization: NormalizationConfig = field(default_factory=NormalizationConfig)
     de_analysis: DEConfig = field(default_factory=DEConfig)
+    batch_correction: BatchConfig = field(default_factory=BatchConfig)
+    network: NetworkConfig = field(default_factory=NetworkConfig)
     visualization: VizConfig = field(default_factory=VizConfig)
     caching_enabled: bool = True
     cache_dir: str = ".btw_cache"
@@ -104,6 +126,8 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> AppConfig:
         normalization=NormalizationConfig(
             method=norm.get("method", "deseq2"),
             fit_type=norm.get("fit_type", "parametric"),
+            engine=norm.get("engine", "r"),
+            fallback_to_python=norm.get("fallback_to_python", True),
         ),
         de_analysis=DEConfig(
             design_factor=de.get("design_factor", "condition"),
@@ -111,6 +135,19 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> AppConfig:
             alpha=de.get("alpha", 0.05),
             lfc_threshold=de.get("lfc_threshold", 1.0),
             padj_method=de.get("padj_method", "fdr_bh"),
+            engine=de.get("engine", "r"),
+            method=de.get("method", "deseq2"),
+            shrink_lfc=de.get("shrink_lfc", True),
+            shrink_type=de.get("shrink_type", "apeglm"),
+            fallback_to_python=de.get("fallback_to_python", True),
+        ),
+        batch_correction=BatchConfig(
+            engine=data.get("batch_correction", {}).get("engine", "r"),
+            fallback_to_python=data.get("batch_correction", {}).get("fallback_to_python", True),
+        ),
+        network=NetworkConfig(
+            engine=data.get("network", {}).get("engine", "r"),
+            fallback_to_python=data.get("network", {}).get("fallback_to_python", True),
         ),
         visualization=VizConfig(
             style=viz.get("style", "nature"),

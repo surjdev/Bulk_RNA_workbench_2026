@@ -6,10 +6,9 @@ Uses joblib.Memory to avoid redundant API requests and repeated permutation test
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Optional, Union
 
 from joblib import Memory
-from btw import logger
 
 DEFAULT_CACHE_DIR = Path(".btw_cache")
 

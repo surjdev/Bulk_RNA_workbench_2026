@@ -5,17 +5,19 @@ Reduces boilerplate without obfuscating original PyDESeq2 objects (DeseqDataSet,
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+
 from btw import logger
 from btw.io.validator import validate_bulk_data
 
 try:
     from pydeseq2.dds import DeseqDataSet
     from pydeseq2.ds import DeseqStats
+
     HAS_PYDESEQ2 = True
 except ImportError:
     HAS_PYDESEQ2 = False
@@ -27,15 +29,19 @@ except ImportError:
 class DEResult:
     """
     Standardized container holding Differential Expression analysis results
-    while keeping the original PyDESeq2 objects directly accessible.
+    while keeping the original R/PyDESeq2 objects directly accessible.
     """
+
     results_df: pd.DataFrame
     contrast: Tuple[str, str, str]  # (factor, test_level, ref_level)
     design_factor: str
     alpha: float
     lfc_threshold: float
-    dds: Optional[Any] = None       # Original DeseqDataSet
-    stat_res: Optional[Any] = None  # Original DeseqStats
+    dds: Optional[Any] = None  # Original DeseqDataSet (R or PyDESeq2)
+    stat_res: Optional[Any] = None  # Original DeseqStats / limma fit
+    engine: str = "r"  # "r" or "python"
+    method: str = "deseq2"  # "deseq2", "limma_voom", "limma_trend"
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def genes(self) -> List[str]:
@@ -140,7 +146,7 @@ class DEResult:
         counts = self.summary_counts()
         factor, test, ref = self.contrast
         return (
-            f"--- DE Summary: {factor} ({test} vs {ref}) ---\n"
+            f"--- DE Summary: {factor} ({test} vs {ref}) [Engine: {self.engine.upper()} ({self.method})] ---\n"
             f"Thresholds: padj <= {self.alpha}, |log2FC| >= {self.lfc_threshold}\n"
             f"Total genes analyzed: {counts['total_tested']}\n"
             f"  - Significant UP:   {counts['significant_up']}\n"
@@ -307,6 +313,8 @@ def run_deseq_stats(
         lfc_threshold=lfc_threshold,
         dds=dds,
         stat_res=stat_res,
+        engine="python",
+        method="pydeseq2",
     )
 
     logger.info(res.summary())
@@ -320,11 +328,17 @@ def run_de(
     alpha: float = 0.05,
     lfc_threshold: float = 1.0,
     design_factors: Optional[Union[str, List[str]]] = None,
+    engine: str = "r",
+    method: str = "deseq2",
+    shrink_lfc: bool = True,
+    shrink_type: str = "apeglm",
+    fallback_to_python: bool = True,
     **kwargs,
 ) -> DEResult:
     """
-    Convenience wrapper to run complete Differential Expression pipeline in one call:
-    Validates input -> Builds & fits DeseqDataSet -> Runs DeseqStats -> Formats DEResult.
+    Execute Differential Expression analysis pipeline.
+    Supports reference R engines ('deseq2', 'limma_voom', 'limma_trend') via rpy2
+    and Python PyDESeq2 engine.
 
     Parameters
     ----------
@@ -340,15 +354,113 @@ def run_de(
         Log2 fold change cutoff.
     design_factors : str or list of str, optional
         Factors for GLM model. Defaults to contrast[0].
+    engine : str, default='r'
+        'r' (calls R DESeq2/limma via rpy2) or 'python' (PyDESeq2).
+    method : str, default='deseq2'
+        'deseq2', 'limma_voom', or 'limma_trend'.
+    shrink_lfc : bool, default=True
+        Whether to apply LFC shrinkage (apeglm/ashr/normal in R).
+    shrink_type : str, default='apeglm'
+        Shrinkage algorithm for R DESeq2.
+    fallback_to_python : bool, default=True
+        If True, falls back to PyDESeq2 if R packages are not installed.
     **kwargs
-        Additional arguments passed to DeseqDataSet or DeseqStats.
+        Additional arguments passed to engine.
 
     Returns
     -------
     DEResult
-        Complete analysis result.
+        Standardized analysis result containing results_df and native engine handles.
     """
+    used_engine = engine.lower()
     factor = design_factors if design_factors is not None else contrast[0]
+
+    # R Engine routing
+    if used_engine == "r":
+        try:
+            from btw.r_interop.bridge import check_r_package, require_r_package
+
+            if method == "deseq2":
+                if check_r_package("DESeq2"):
+                    from btw.r_interop.deseq2_r import run_r_deseq2
+
+                    res_df, r_dds = run_r_deseq2(
+                        counts=counts,
+                        metadata=metadata,
+                        contrast=contrast,
+                        design=factor if isinstance(factor, str) else " + ".join(factor),
+                        alpha=alpha,
+                        lfc_threshold=lfc_threshold,
+                        shrink_lfc=shrink_lfc,
+                        shrink_type=shrink_type,
+                        **kwargs,
+                    )
+                    res = DEResult(
+                        results_df=res_df,
+                        contrast=(str(contrast[0]), str(contrast[1]), str(contrast[2])),
+                        design_factor=str(factor),
+                        alpha=alpha,
+                        lfc_threshold=lfc_threshold,
+                        dds=r_dds,
+                        stat_res=r_dds,
+                        engine="r",
+                        method="deseq2",
+                    )
+                    logger.info(res.summary())
+                    return res
+                else:
+                    if not fallback_to_python:
+                        require_r_package(
+                            "DESeq2", purpose="Reference Differential Expression analysis (FR-3)"
+                        )
+                    logger.info(
+                        "R package 'DESeq2' not found in R library; falling back to Python PyDESeq2 engine per SRS v2."
+                    )
+                    used_engine = "python"
+
+            elif method in ["limma_voom", "limma_trend"]:
+                if check_r_package("limma"):
+                    from btw.r_interop.limma_r import run_r_limma
+
+                    limma_m = "voom" if "voom" in method else "trend"
+                    res_df, r_fit = run_r_limma(
+                        counts=counts,
+                        metadata=metadata,
+                        contrast=contrast,
+                        method=limma_m,
+                        alpha=alpha,
+                        lfc_threshold=lfc_threshold,
+                    )
+                    res = DEResult(
+                        results_df=res_df,
+                        contrast=(str(contrast[0]), str(contrast[1]), str(contrast[2])),
+                        design_factor=str(factor),
+                        alpha=alpha,
+                        lfc_threshold=lfc_threshold,
+                        dds=None,
+                        stat_res=r_fit,
+                        engine="r",
+                        method=method,
+                    )
+                    logger.info(res.summary())
+                    return res
+                else:
+                    if not fallback_to_python:
+                        require_r_package("limma", purpose=f"limma-{method} analysis")
+                    logger.info(
+                        "R package 'limma' not found; falling back to Python PyDESeq2 engine."
+                    )
+                    used_engine = "python"
+        except Exception as e:
+            if not fallback_to_python:
+                raise e
+            logger.info(
+                f"R DE execution encountered exception ({e}); falling back to Python PyDESeq2 engine."
+            )
+            used_engine = "python"
+
+    # Python PyDESeq2 Execution
+    logger.info("Executing Differential Expression via Python PyDESeq2 engine...")
     ref_level = {contrast[0]: contrast[2]}
 
     dds = build_deseq_dataset(

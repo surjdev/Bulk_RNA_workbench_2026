@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, Optional, Union
 
 import pandas as pd
+
 from btw import logger
 from btw.de_analysis.contrasts import DEResult
 from btw.enrichment.schema import EnrichmentResult
@@ -112,5 +113,7 @@ def export_publication_bundle(
         output_path=html_path,
     )
 
-    logger.info(f"Publication bundle successfully assembled with {len(copied_figures)} figures and reports.")
+    logger.info(
+        f"Publication bundle successfully assembled with {len(copied_figures)} figures and reports."
+    )
     return bundle_path

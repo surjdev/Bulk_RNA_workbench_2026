@@ -6,11 +6,10 @@ Ensures outputs across ORA, GSEA, and decoupler activity inference share a unifi
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-from btw import logger
 
 
 @dataclass
@@ -19,11 +18,14 @@ class EnrichmentResult:
     Standardized container holding functional pathway enrichment results
     across ORA (Enrichr, goatools), GSEA (prerank), and Activity Inference (decoupler).
     """
+
     results_df: pd.DataFrame
-    source_method: str               # 'gseapy_enrichr', 'goatools_ora', 'gseapy_prerank', 'decoupler_ulm', etc.
-    gene_set_database: str           # 'KEGG_2021_Human', 'MSigDB_Hallmark', 'PROGENy', etc.
+    source_method: str  # 'gseapy_enrichr', 'goatools_ora', 'gseapy_prerank', 'decoupler_ulm', etc.
+    gene_set_database: str  # 'KEGG_2021_Human', 'MSigDB_Hallmark', 'PROGENy', etc.
     alpha: float = 0.05
-    raw_output: Optional[Any] = None # Underlying raw object (e.g. gseapy.Enrichr or decoupler tuple)
+    raw_output: Optional[Any] = (
+        None  # Underlying raw object (e.g. gseapy.Enrichr or decoupler tuple)
+    )
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -50,6 +52,10 @@ class EnrichmentResult:
         if "padj" not in df.columns:
             return df
         return df.loc[df["padj"].notna() & (df["padj"] <= cutoff)]
+
+    def significant_terms(self, padj_cutoff: Optional[float] = None) -> pd.DataFrame:
+        """Alias for get_significant() returning significant enrichment terms."""
+        return self.get_significant(padj_cutoff=padj_cutoff)
 
     def summary(self) -> str:
         """Summary text of enrichment results."""
@@ -140,7 +146,13 @@ def standardize_enrichment_table(
         # If count was not explicitly provided or resulted in all 0s, count from genes string/list
         if count_col is None or count_col not in df.columns:
             out["gene_count"] = out["genes"].apply(
-                lambda x: len(x) if isinstance(x, (list, set)) else len(str(x).split(";")) if str(x) != "nan" and str(x) != "" else 0
+                lambda x: (
+                    len(x)
+                    if isinstance(x, (list, set))
+                    else len(str(x).split(";"))
+                    if str(x) != "nan" and str(x) != ""
+                    else 0
+                )
             )
     else:
         out["genes"] = ""
@@ -148,5 +160,7 @@ def standardize_enrichment_table(
     out["source_method"] = source_method
 
     # Sort by significance (padj ascending, then absolute score descending)
-    out = out.sort_values(by=["padj", "pvalue", "score"], ascending=[True, True, False]).reset_index(drop=True)
+    out = out.sort_values(
+        by=["padj", "pvalue", "score"], ascending=[True, True, False]
+    ).reset_index(drop=True)
     return out

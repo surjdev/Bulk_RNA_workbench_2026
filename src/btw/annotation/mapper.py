@@ -6,9 +6,10 @@ Provides integration with MyGene.info with automatic local caching.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
+
 from btw import logger
 from btw.de_analysis.contrasts import DEResult
 
@@ -74,9 +75,13 @@ def map_gene_ids(
         return res_df
 
     if not HAS_MYGENE:
-        raise ImportError("mygene package is required for online gene mapping. Run pip install mygene.")
+        raise ImportError(
+            "mygene package is required for online gene mapping. Run pip install mygene."
+        )
 
-    logger.info(f"Querying MyGene.info for {len(genes)} genes ({from_id} -> {to_id}, species={species})...")
+    logger.info(
+        f"Querying MyGene.info for {len(genes)} genes ({from_id} -> {to_id}, species={species})..."
+    )
 
     mg = mygene.MyGeneInfo()
 
@@ -119,10 +124,10 @@ def map_gene_ids(
         return res_df
 
     except Exception as exc:
-        logger.warning(f"MyGene.info online query failed ({exc}). Falling back to identity mapping.")
-        return pd.DataFrame(
-            {"query": genes, to_id: genes}
-        ).set_index("query")
+        logger.warning(
+            f"MyGene.info online query failed ({exc}). Falling back to identity mapping."
+        )
+        return pd.DataFrame({"query": genes, to_id: genes}).set_index("query")
 
 
 def annotate_de_results(

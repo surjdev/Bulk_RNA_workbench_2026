@@ -11,14 +11,29 @@ qc:
 
 normalization:
   method: "deseq2"
+  engine: "r"  # "r" (DESeq2 estimateSizeFactors/vst) | "python" (PyDESeq2)
   fit_type: "parametric"  # parametric | mean | local
+  fallback_to_python: true
 
 de_analysis:
+  engine: "r"  # "r" (DESeq2 / limma via rpy2) | "python" (PyDESeq2)
+  method: "deseq2"  # "deseq2" | "limma_voom" | "limma_trend"
   design_factor: "condition"
   reference_level: "control"
   alpha: 0.05
   lfc_threshold: 1.0  # log2 fold change threshold (absolute)
   padj_method: "fdr_bh"  # statsmodels multiple testing
+  shrink_lfc: true  # LFC shrinkage via apeglm / ashr
+  shrink_type: "apeglm"  # "apeglm" | "ashr" | "normal"
+  fallback_to_python: true
+
+batch_correction:
+  engine: "r"  # "r" (sva::ComBat) | "python" (inmoose)
+  fallback_to_python: true
+
+network:
+  engine: "r"  # "r" (WGCNA blockwiseModules) | "python" (PyWGCNA)
+  fallback_to_python: true
 
 visualization:
   style: "nature"  # nature | cell | classic

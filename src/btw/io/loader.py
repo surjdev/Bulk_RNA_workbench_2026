@@ -7,9 +7,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 import pandas as pd
+
 from btw import logger
 from btw.io.validator import ValidationReport, validate_bulk_data
 
@@ -17,6 +18,7 @@ from btw.io.validator import ValidationReport, validate_bulk_data
 @dataclass
 class BulkDataset:
     """Container holding verified gene count matrix and sample metadata."""
+
     counts: pd.DataFrame
     metadata: pd.DataFrame
     validation_report: Optional[ValidationReport] = None
@@ -36,6 +38,10 @@ class BulkDataset:
     @property
     def genes(self) -> list[str]:
         return list(self.counts.index)
+
+    def __iter__(self):
+        """Allow tuple unpacking: counts, metadata = dataset"""
+        return iter((self.counts, self.metadata))
 
 
 def _detect_separator(filepath: Path) -> str:
@@ -114,7 +120,9 @@ def load_counts(
     df.index = df.index.astype(str)
     df.columns = df.columns.astype(str)
 
-    logger.info(f"Loaded count matrix with shape {df.shape} ({df.shape[0]} genes, {df.shape[1]} samples)")
+    logger.info(
+        f"Loaded count matrix with shape {df.shape} ({df.shape[0]} genes, {df.shape[1]} samples)"
+    )
     return df
 
 

@@ -10,6 +10,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from statsmodels.stats.multitest import multipletests
+
 from btw import logger
 
 # Supported correction methods mapped to descriptions
@@ -116,7 +117,9 @@ def apply_multitest_correction(
         Copy of input DataFrame with new adjusted p-value and significance columns.
     """
     if pvalue_col not in df.columns:
-        raise KeyError(f"P-value column '{pvalue_col}' not found in DataFrame columns: {list(df.columns)}")
+        raise KeyError(
+            f"P-value column '{pvalue_col}' not found in DataFrame columns: {list(df.columns)}"
+        )
 
     padj_name = output_padj_col if output_padj_col is not None else "padj"
     sig_name = output_sig_col if output_sig_col is not None else "significant"

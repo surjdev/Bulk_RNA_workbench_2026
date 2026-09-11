@@ -5,10 +5,10 @@ Unit tests for I/O and Validation module (FR-1).
 import numpy as np
 import pandas as pd
 import pytest
+
 from btw.io import (
     BulkDataset,
     ValidationError,
-    ValidationReport,
     export_excel_multisheet,
     export_table,
     load_counts,
@@ -109,6 +109,7 @@ def test_io_load_and_export_table(synthetic_data, temp_dir):
     # 3. Parquet test (if pyarrow/fastparquet is installed)
     try:
         import pyarrow  # noqa: F401
+
         parquet_path = temp_dir / "counts.parquet"
         export_table(counts, parquet_path)
         loaded_parquet = load_counts(parquet_path)

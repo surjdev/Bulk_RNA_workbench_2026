@@ -5,6 +5,7 @@ Unit tests for Differential Expression Integration module (FR-3).
 import numpy as np
 import pandas as pd
 import pytest
+
 from btw.de_analysis import (
     DEResult,
     MultiContrastResult,
@@ -91,7 +92,16 @@ def test_run_deseq_stats_and_deresult(synthetic_data):
 
     df = de_res.results_df
     assert df.shape[0] == 100
-    for col in ["baseMean", "log2FoldChange", "lfcSE", "stat", "pvalue", "padj", "significant", "regulation"]:
+    for col in [
+        "baseMean",
+        "log2FoldChange",
+        "lfcSE",
+        "stat",
+        "pvalue",
+        "padj",
+        "significant",
+        "regulation",
+    ]:
         assert col in df.columns
 
     # Test filtering methods
@@ -168,3 +178,20 @@ def test_run_multiple_contrasts(synthetic_data, temp_dir):
     excel_path = temp_dir / "multi_contrast_report.xlsx"
     out_path = multi_res.export_excel(excel_path)
     assert out_path.exists()
+
+
+def test_run_de_engine_switching(synthetic_data):
+    """Verify engine switching and metadata retention in run_de (FR-3 & FR-10)."""
+    counts, metadata = synthetic_data
+    contrast = ("condition", "treated", "control")
+
+    # Python engine
+    res_py = run_de(counts, metadata, contrast=contrast, engine="python")
+    assert res_py.engine == "python"
+    assert res_py.method == "pydeseq2"
+    assert "Engine: PYTHON (pydeseq2)" in res_py.summary()
+
+    # R engine with fallback
+    res_r = run_de(counts, metadata, contrast=contrast, engine="r", fallback_to_python=True)
+    assert res_r.results_df.shape[0] == 100
+    assert "Engine:" in res_r.summary()

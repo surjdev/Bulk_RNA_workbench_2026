@@ -4,7 +4,7 @@ Unit tests for QC and Normalization module (FR-2).
 
 import numpy as np
 import pandas as pd
-import pytest
+
 from btw.qc_normalize import (
     NormalizationResult,
     compute_gene_qc,
@@ -44,7 +44,13 @@ def test_gene_qc_metrics(synthetic_data):
     assert gene_df.shape == (100, 6)
     assert list(gene_df.index) == list(counts.index)
 
-    for col in ["total_counts", "mean_count", "variance", "dispersion_ratio", "n_samples_expressing"]:
+    for col in [
+        "total_counts",
+        "mean_count",
+        "variance",
+        "dispersion_ratio",
+        "n_samples_expressing",
+    ]:
         assert col in gene_df.columns
 
     assert (gene_df["n_samples_expressing"] <= 6).all()

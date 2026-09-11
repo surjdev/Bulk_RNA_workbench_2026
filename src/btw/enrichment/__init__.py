@@ -13,6 +13,7 @@ from btw.enrichment.cache import get_memory_cache
 from btw.enrichment.gsea import prepare_ranked_gene_list, run_prerank
 from btw.enrichment.ora import (
     extract_significant_genes,
+    run_clusterprofiler,
     run_custom_ora,
     run_enrichr,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "EnrichmentResult",
     "standardize_enrichment_table",
     "extract_significant_genes",
+    "run_clusterprofiler",
     "run_enrichr",
     "run_custom_ora",
     "prepare_ranked_gene_list",

@@ -13,6 +13,7 @@ from btw.network.wgcna_helper import (
     compute_tom,
     detect_coexpression_modules,
     run_pywgcna,
+    run_wgcna,
 )
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "compute_adjacency",
     "compute_tom",
     "detect_coexpression_modules",
+    "run_wgcna",
     "run_pywgcna",
     "module_to_networkx",
     "export_cytoscape_sif",

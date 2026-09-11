@@ -6,10 +6,11 @@ Inspired by leading journals (Nature, Cell, Science).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 from btw import logger
 
 # Curated publication palettes
@@ -50,9 +51,9 @@ SCIENCE_PALETTE: List[str] = [
 ]
 
 REGULATION_COLORS: Dict[str, str] = {
-    "UP": "#E64B35",    # Vivid red
+    "UP": "#E64B35",  # Vivid red
     "DOWN": "#4DBBD5",  # Soft blue
-    "NS": "#B0B0B0",    # Neutral gray
+    "NS": "#B0B0B0",  # Neutral gray
 }
 
 PALETTES: Dict[str, List[str]] = {
@@ -148,6 +149,15 @@ def save_figure(
     """
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Automatically unwrap (fig, ax) tuple or seaborn ClusterGrid
+    if isinstance(fig, tuple) and len(fig) > 0 and hasattr(fig[0], "savefig"):
+        fig = fig[0]
+    elif hasattr(fig, "figure") and hasattr(fig.figure, "savefig"):
+        fig = fig.figure
+    elif hasattr(fig, "fig") and hasattr(fig.fig, "savefig"):
+        fig = fig.fig
+
     fig.savefig(
         path,
         dpi=dpi,

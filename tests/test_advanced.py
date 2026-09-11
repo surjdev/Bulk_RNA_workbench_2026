@@ -7,13 +7,13 @@ Covers:
 """
 
 import io
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
 import pytest
+
 from btw.annotation import (
     annotate_de_results,
     create_gene_map_from_gtf,
@@ -25,7 +25,6 @@ from btw.batch_correction import (
     evaluate_batch_effect,
     run_combat,
 )
-from btw.de_analysis.contrasts import DEResult
 from btw.network import (
     WGCNAClusterResult,
     compute_adjacency,
@@ -35,7 +34,6 @@ from btw.network import (
     export_edge_list,
     module_to_networkx,
 )
-
 
 # =====================================================================
 # FR-6: Annotation & GTF Parsing Tests
@@ -139,7 +137,9 @@ def test_run_combat_seq_counts(batch_dataset_fixture):
     assert list(corrected.index) == list(counts_df.index)
     assert list(corrected.columns) == list(counts_df.columns)
     # Check that batch differences in mean expression are significantly reduced
-    mean_diff_before = abs(counts_df.iloc[:, 3:].values.mean() - counts_df.iloc[:, :3].values.mean())
+    mean_diff_before = abs(
+        counts_df.iloc[:, 3:].values.mean() - counts_df.iloc[:, :3].values.mean()
+    )
     mean_diff_after = abs(corrected.iloc[:, 3:].values.mean() - corrected.iloc[:, :3].values.mean())
     assert mean_diff_after < mean_diff_before
 
@@ -172,8 +172,12 @@ def test_batch_diagnostic_pca(batch_dataset_fixture):
     )
 
     # Evaluate metrics
-    m_before = evaluate_batch_effect(log_norm, metadata, batch_col="batch", condition_col="condition")
-    m_after = evaluate_batch_effect(corrected, metadata, batch_col="batch", condition_col="condition")
+    m_before = evaluate_batch_effect(
+        log_norm, metadata, batch_col="batch", condition_col="condition"
+    )
+    m_after = evaluate_batch_effect(
+        corrected, metadata, batch_col="batch", condition_col="condition"
+    )
 
     assert "batch_silhouette" in m_before
     assert "batch_silhouette" in m_after
@@ -354,4 +358,3 @@ def test_export_dataframe_sif_and_edge_list(tmp_path):
 
     edge_path = export_edge_list(df, tmp_path / "from_df.tsv")
     assert edge_path.exists()
-

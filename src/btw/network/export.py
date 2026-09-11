@@ -6,11 +6,12 @@ Converts co-expression modules into NetworkX graphs and exports to Cytoscape SIF
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import networkx as nx
 import numpy as np
 import pandas as pd
+
 from btw import logger
 from btw.network.wgcna_helper import WGCNAClusterResult
 
@@ -45,7 +46,9 @@ def module_to_networkx(
         if module is not None:
             genes = network_data.get_module_genes(module)
             if not genes:
-                raise ValueError(f"No genes found in module '{module}'. Available: {network_data.modules}")
+                raise ValueError(
+                    f"No genes found in module '{module}'. Available: {network_data.modules}"
+                )
             tom_sub = network_data.tom_matrix.loc[genes, genes]
             module_map = {g: module for g in genes}
         else:
@@ -78,7 +81,11 @@ def module_to_networkx(
     )
 
     if top_n_edges is not None and len(edge_df) > top_n_edges:
-        edge_df = edge_df.sort_values(by="weight", ascending=False).head(top_n_edges).reset_index(drop=True)
+        edge_df = (
+            edge_df.sort_values(by="weight", ascending=False)
+            .head(top_n_edges)
+            .reset_index(drop=True)
+        )
 
     # Build NetworkX graph
     G = nx.Graph()
@@ -96,7 +103,9 @@ def module_to_networkx(
     for node in G.nodes():
         G.nodes[node]["degree"] = G.degree[node]
 
-    logger.info(f"Constructed NetworkX graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges (module={module}).")
+    logger.info(
+        f"Constructed NetworkX graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges (module={module})."
+    )
     return G
 
 

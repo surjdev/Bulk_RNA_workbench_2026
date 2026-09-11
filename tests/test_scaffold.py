@@ -4,7 +4,7 @@ Smoke tests for BTW package scaffold, configuration, and reproducibility fixture
 
 import numpy as np
 import pandas as pd
-import pytest
+
 from btw import __version__, logger, set_seed
 from btw.config import AppConfig, load_config
 

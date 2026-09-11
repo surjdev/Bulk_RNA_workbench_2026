@@ -10,11 +10,13 @@ from typing import Any, Dict, Optional, Tuple, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
 from btw.de_analysis.deseq_helper import DEResult
 from btw.viz.style import REGULATION_COLORS, set_publication_style
 
 try:
     import plotly.graph_objects as go
+
     HAS_PLOTLY = True
 except ImportError:
     HAS_PLOTLY = False
@@ -79,7 +81,11 @@ def plot_ma(
     valid = df[base_mean_col].notna() & df[lfc_col].notna() & (df[base_mean_col] > 0)
     plot_df = df.loc[valid].copy()
 
-    is_sig = (plot_df[padj_col].notna()) & (plot_df[padj_col] <= padj_cutoff) & (plot_df[lfc_col].abs() >= lfc_cutoff)
+    is_sig = (
+        (plot_df[padj_col].notna())
+        & (plot_df[padj_col] <= padj_cutoff)
+        & (plot_df[lfc_col].abs() >= lfc_cutoff)
+    )
     conds = [
         is_sig & (plot_df[lfc_col] > 0),
         is_sig & (plot_df[lfc_col] < 0),
@@ -98,7 +104,11 @@ def plot_ma(
             raise ImportError("plotly is required for interactive MA plots.")
 
         fig = go.Figure()
-        for status, color in [("NS", palette["NS"]), ("DOWN", palette["DOWN"]), ("UP", palette["UP"])]:
+        for status, color in [
+            ("NS", palette["NS"]),
+            ("DOWN", palette["DOWN"]),
+            ("UP", palette["UP"]),
+        ]:
             sub = plot_df[plot_df["status"] == status]
             fig.add_trace(
                 go.Scatter(
@@ -142,15 +152,36 @@ def plot_ma(
 
     # Plot non-significant points
     ns_sub = plot_df[plot_df["status"] == "NS"]
-    ax.scatter(ns_sub[base_mean_col], ns_sub[lfc_col], color=palette["NS"], s=10, alpha=0.35, label=f"NS ({len(ns_sub)})")
+    ax.scatter(
+        ns_sub[base_mean_col],
+        ns_sub[lfc_col],
+        color=palette["NS"],
+        s=10,
+        alpha=0.35,
+        label=f"NS ({len(ns_sub)})",
+    )
 
     # Plot down-regulated points
     down_sub = plot_df[plot_df["status"] == "DOWN"]
-    ax.scatter(down_sub[base_mean_col], down_sub[lfc_col], color=palette["DOWN"], s=18, alpha=0.8, label=f"DOWN ({len(down_sub)})")
+    ax.scatter(
+        down_sub[base_mean_col],
+        down_sub[lfc_col],
+        color=palette["DOWN"],
+        s=18,
+        alpha=0.8,
+        label=f"DOWN ({len(down_sub)})",
+    )
 
     # Plot up-regulated points
     up_sub = plot_df[plot_df["status"] == "UP"]
-    ax.scatter(up_sub[base_mean_col], up_sub[lfc_col], color=palette["UP"], s=18, alpha=0.8, label=f"UP ({len(up_sub)})")
+    ax.scatter(
+        up_sub[base_mean_col],
+        up_sub[lfc_col],
+        color=palette["UP"],
+        s=18,
+        alpha=0.8,
+        label=f"UP ({len(up_sub)})",
+    )
 
     ax.axhline(0, color="#333333", linewidth=0.8)
     ax.axhline(lfc_cutoff, linestyle="--", color="#666666", linewidth=0.8, alpha=0.7)

@@ -4,12 +4,12 @@ Tests ORA, GSEA, decoupler activity inference, standardized schema, and unified 
 """
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import pytest
-from btw.de_analysis import run_de
+
 from btw.enrichment import (
     EnrichmentResult,
     extract_significant_genes,
@@ -24,8 +24,6 @@ from btw.enrichment import (
     run_prerank,
     standardize_enrichment_table,
 )
-
-
 
 
 @pytest.fixture

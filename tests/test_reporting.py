@@ -2,10 +2,8 @@
 Unit tests for Reporting Module (FR-9).
 """
 
-from pathlib import Path
-
 import matplotlib.pyplot as plt
-import pytest
+
 from btw.reporting import (
     export_publication_bundle,
     generate_html_report,

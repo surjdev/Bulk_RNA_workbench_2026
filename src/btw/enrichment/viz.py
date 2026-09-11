@@ -10,13 +10,15 @@ from typing import Any, Optional, Tuple, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
 from btw import logger
 from btw.enrichment.schema import EnrichmentResult
 from btw.viz.style import set_publication_style
 
 try:
     import plotly.express as px
-    import plotly.graph_objects as go
+    import plotly.graph_objects as go  # noqa: F401
+
     HAS_PLOTLY = True
 except ImportError:
     HAS_PLOTLY = False
@@ -44,7 +46,9 @@ def _resolve_enrichment_df(
         if not valid.empty:
             df = valid
         else:
-            logger.info("No terms below significance threshold; plotting top terms by nominal p-value.")
+            logger.info(
+                "No terms below significance threshold; plotting top terms by nominal p-value."
+            )
 
     # Sort by padj ascending (most significant first)
     if "padj" in df.columns and "pvalue" in df.columns:
@@ -126,7 +130,11 @@ def plot_enrichment_dotplot(
             size=size_col,
             color="neg_log10_padj",
             color_continuous_scale="Viridis",
-            labels={"score": "Enrichment Score / Activity", "neg_log10_padj": "-log₁₀(padj)", "term": "Pathway / Term"},
+            labels={
+                "score": "Enrichment Score / Activity",
+                "neg_log10_padj": "-log₁₀(padj)",
+                "term": "Pathway / Term",
+            },
             title=default_title,
             hover_data=["pvalue", "padj", "gene_count"],
             template="plotly_white",
@@ -247,7 +255,11 @@ def plot_enrichment_barplot(
             color_continuous_scale="Tealrose",
             orientation="h",
             title=default_title,
-            labels={metric: metric.capitalize(), "neg_log10_padj": "-log₁₀(padj)", "term": "Pathway"},
+            labels={
+                metric: metric.capitalize(),
+                "neg_log10_padj": "-log₁₀(padj)",
+                "term": "Pathway",
+            },
             template="plotly_white",
         )
         return fig
@@ -262,7 +274,7 @@ def plot_enrichment_barplot(
     else:
         fig = ax.figure
 
-    bars = ax.barh(
+    ax.barh(
         np.arange(len(plot_df)),
         plot_df[metric],
         color="#3C5488",

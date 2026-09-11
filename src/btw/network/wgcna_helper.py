@@ -7,15 +7,16 @@ module eigengene extraction, and integration with PyWGCNA.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
-from btw import logger
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
 from scipy.stats import pearsonr
 from sklearn.decomposition import PCA
+
+from btw import logger
 
 try:
     import PyWGCNA
@@ -55,10 +56,11 @@ class WGCNAClusterResult:
     """
     Standardized container holding WGCNA co-expression network analysis results.
     """
-    module_labels: pd.Series            # Gene ID -> Module Color string
-    module_eigengenes: pd.DataFrame     # Samples x Modules (ME<color>)
-    tom_matrix: pd.DataFrame            # Genes x Genes topological overlap
-    adjacency_matrix: pd.DataFrame      # Genes x Genes soft-thresholded adjacency
+
+    module_labels: pd.Series  # Gene ID -> Module Color string
+    module_eigengenes: pd.DataFrame  # Samples x Modules (ME<color>)
+    tom_matrix: pd.DataFrame  # Genes x Genes topological overlap
+    adjacency_matrix: pd.DataFrame  # Genes x Genes soft-thresholded adjacency
     power: int = 6
     network_type: str = "unsigned"
     module_trait_cor: Optional[pd.DataFrame] = None
@@ -191,10 +193,12 @@ def detect_coexpression_modules(
     max_modules: int = 15,
     sample_metadata: Optional[pd.DataFrame] = None,
     traits: Optional[Union[List[str], pd.DataFrame]] = None,
+    engine: str = "r",
+    fallback_to_python: bool = True,
 ) -> WGCNAClusterResult:
     """
-    Perform complete WGCNA co-expression network analysis:
-    Adjacency -> TOM -> Hierarchical Clustering -> Module Eigengenes -> Trait Correlation.
+    Perform WGCNA co-expression network analysis.
+    Supports both reference R WGCNA (blockwiseModules) and Python implementations.
 
     Parameters
     ----------
@@ -212,16 +216,74 @@ def detect_coexpression_modules(
         Sample metadata for module-trait correlation analysis.
     traits : list of str or DataFrame, optional
         Traits to correlate against module eigengenes.
+    engine : str, default='r'
+        'r' (calls R WGCNA via rpy2) or 'python' (pure-Python helper).
+    fallback_to_python : bool, default=True
+        Whether to fall back to Python helper if R package WGCNA is not installed.
 
     Returns
     -------
     WGCNAClusterResult
         Structured container with module assignments, TOM, and eigengenes.
     """
+    used_engine = engine.lower()
+
+    if used_engine == "r":
+        try:
+            from btw.r_interop.bridge import check_r_package, require_r_package
+
+            if check_r_package("WGCNA"):
+                from btw.r_interop.wgcna_r import run_r_wgcna
+
+                module_labels, mes_df, r_net = run_r_wgcna(
+                    data=data,
+                    power=power,
+                    min_module_size=min_module_size,
+                    network_type=network_type,
+                )
+                # Compute adjacency for export utilities
+                if data.shape[0] > data.shape[1]:
+                    expr_df = data.T.copy()
+                else:
+                    expr_df = data.copy()
+                adj_df = compute_adjacency(expr_df, power=power, network_type=network_type)
+                tom = compute_tom(adj_df)
+                tom_df = pd.DataFrame(tom, index=expr_df.columns, columns=expr_df.columns)
+
+                res = WGCNAClusterResult(
+                    module_labels=module_labels,
+                    module_eigengenes=mes_df,
+                    tom_matrix=tom_df,
+                    adjacency_matrix=adj_df,
+                    power=power,
+                    network_type=network_type,
+                    metadata={"r_net": r_net, "engine": "r"},
+                )
+                logger.info(res.summary())
+                return res
+            else:
+                if not fallback_to_python:
+                    require_r_package(
+                        "WGCNA", purpose="Reference WGCNA co-expression analysis (FR-8)"
+                    )
+                logger.info(
+                    "R package 'WGCNA' not found in R library; falling back to Python WGCNA engine per SRS v2."
+                )
+                used_engine = "python"
+        except Exception as e:
+            if not fallback_to_python:
+                raise e
+            logger.info(
+                f"R WGCNA execution encountered error ({e}); falling back to Python WGCNA engine."
+            )
+            used_engine = "python"
+
     # 1. Orientation: ensure samples as rows, genes as columns
     if data.shape[0] > data.shape[1]:
         expr_df = data.T.copy()
-        logger.info(f"Transposed expression matrix to ({expr_df.shape[0]} samples x {expr_df.shape[1]} genes).")
+        logger.info(
+            f"Transposed expression matrix to ({expr_df.shape[0]} samples x {expr_df.shape[1]} genes)."
+        )
     else:
         expr_df = data.copy()
 
@@ -230,7 +292,9 @@ def detect_coexpression_modules(
     n_genes = len(gene_names)
     n_samples = len(sample_names)
 
-    logger.info(f"Running WGCNA on {n_genes} genes across {n_samples} samples (power={power}, type={network_type})...")
+    logger.info(
+        f"Running WGCNA on {n_genes} genes across {n_samples} samples (power={power}, type={network_type})..."
+    )
 
     # 2. Adjacency and TOM
     adj_df = compute_adjacency(expr_df, power=power, network_type=network_type)
@@ -307,7 +371,11 @@ def detect_coexpression_modules(
             sub_meta = sample_metadata.loc[common_samples]
 
             if traits is not None:
-                trait_cols = [c for c in (traits if isinstance(traits, list) else traits.columns) if c in sub_meta.columns]
+                trait_cols = [
+                    c
+                    for c in (traits if isinstance(traits, list) else traits.columns)
+                    if c in sub_meta.columns
+                ]
             else:
                 # Include numeric columns or convert binary categories to 0/1
                 trait_cols = []
@@ -342,8 +410,14 @@ def detect_coexpression_modules(
         module_trait_cor=trait_cor_df,
         module_trait_pval=trait_pval_df,
     )
-    logger.info(f"Detected {len(result.modules)} co-expression modules: {', '.join(result.modules)}")
+    logger.info(
+        f"Detected {len(result.modules)} co-expression modules: {', '.join(result.modules)}"
+    )
     return result
+
+
+# Convenience alias for unified workbench API
+run_wgcna = detect_coexpression_modules
 
 
 def run_pywgcna(

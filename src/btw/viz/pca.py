@@ -5,20 +5,21 @@ Uses scikit-learn PCA to compute variance-explained embeddings with static and i
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.decomposition import PCA
+
 from btw import logger
 from btw.qc_normalize.normalize import NormalizationResult
 from btw.viz.style import NATURE_PALETTE, set_publication_style
 
 try:
     import plotly.express as px
-    import plotly.graph_objects as go
+    import plotly.graph_objects as go  # noqa: F401
+
     HAS_PLOTLY = True
 except ImportError:
     HAS_PLOTLY = False
@@ -70,7 +71,9 @@ def compute_pca(
     top_genes = variances.nlargest(n_top).index
     mat_subset = mat.loc[top_genes]
 
-    logger.info(f"Computing PCA on {n_top} most variable genes across {len(common_samples)} samples...")
+    logger.info(
+        f"Computing PCA on {n_top} most variable genes across {len(common_samples)} samples..."
+    )
 
     # Samples as rows, genes as columns
     x_matrix = mat_subset.T.values
@@ -78,7 +81,7 @@ def compute_pca(
     pca = PCA(n_components=n_components)
     coords = pca.fit_transform(x_matrix)
 
-    col_names = [f"PC{i+1}" for i in range(n_components)]
+    col_names = [f"PC{i + 1}" for i in range(n_components)]
     pca_df = pd.DataFrame(coords, index=common_samples, columns=col_names)
 
     # Attach metadata columns
@@ -145,14 +148,20 @@ def plot_pca(
     pc1_lbl = f"PC1 ({var_ratios[0]:.1f}%)"
     pc2_lbl = f"PC2 ({var_ratios[1]:.1f}%)"
 
-    default_title = title if title is not None else f"PCA Plot (Top {min(top_n_variable_genes, len(data))} Genes)"
+    default_title = (
+        title
+        if title is not None
+        else f"PCA Plot (Top {min(top_n_variable_genes, len(data))} Genes)"
+    )
 
     # -------------------------------------------------------------
     # Interactive Plotly Mode
     # -------------------------------------------------------------
     if interactive:
         if not HAS_PLOTLY:
-            raise ImportError("plotly is required for interactive PCA plots. Run pip install plotly.")
+            raise ImportError(
+                "plotly is required for interactive PCA plots. Run pip install plotly."
+            )
 
         if n_components >= 3:
             pc3_lbl = f"PC3 ({var_ratios[2]:.1f}%)"

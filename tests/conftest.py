@@ -10,6 +10,7 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 import pytest
+
 from btw import set_seed
 from btw.config import AppConfig, load_config
 
@@ -92,4 +93,3 @@ def de_result_fixture(synthetic_data):
 
     counts, metadata = synthetic_data
     return run_de(counts, metadata, contrast=("condition", "treated", "control"))
-

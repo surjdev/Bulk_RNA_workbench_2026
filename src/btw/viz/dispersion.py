@@ -10,7 +10,7 @@ from typing import Any, Optional, Tuple, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from btw import logger
+
 from btw.de_analysis.deseq_helper import DEResult
 from btw.viz.style import set_publication_style
 
@@ -56,12 +56,16 @@ def plot_dispersion(
     if "genewise_dispersions" in var_df.columns:
         genewise_disp = var_df["genewise_dispersions"].values
         final_disp = var_df["dispersions"].values
-        fitted_disp = var_df["fitted_dispersions"].values if "fitted_dispersions" in var_df.columns else None
+        fitted_disp = (
+            var_df["fitted_dispersions"].values if "fitted_dispersions" in var_df.columns else None
+        )
         mean_counts = var_df["_normed_means"].values if "_normed_means" in var_df.columns else None
     elif "genewise_dispersions" in varm:
         genewise_disp = np.asarray(varm["genewise_dispersions"])
         final_disp = np.asarray(varm["dispersions"])
-        fitted_disp = np.asarray(varm["fitted_dispersions"]) if "fitted_dispersions" in varm else None
+        fitted_disp = (
+            np.asarray(varm["fitted_dispersions"]) if "fitted_dispersions" in varm else None
+        )
 
     if genewise_disp is None or final_disp is None:
         raise KeyError("DeseqDataSet has not had dispersions fitted. Run dds.deseq2() first.")

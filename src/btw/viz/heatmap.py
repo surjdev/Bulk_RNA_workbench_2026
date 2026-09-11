@@ -5,12 +5,13 @@ Clusters top DEGs or variable genes across biological samples with metadata anno
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+
 from btw import logger
 from btw.de_analysis.deseq_helper import DEResult
 from btw.qc_normalize.normalize import NormalizationResult
@@ -111,7 +112,9 @@ def plot_heatmap(
     elif de_result is not None:
         degs = de_result.get_degs()
         if degs.empty:
-            logger.warning("No significant DEGs found in DEResult; falling back to top variable genes.")
+            logger.warning(
+                "No significant DEGs found in DEResult; falling back to top variable genes."
+            )
             variances = mat.var(axis=1)
             n_sel = min(top_n_variable, mat.shape[0])
             chosen_genes = list(variances.nlargest(n_sel).index)
@@ -172,7 +175,9 @@ def plot_heatmap(
     if legend_dict is not None and len(legend_dict) > 0:
         for label, mapping in legend_dict.items():
             handles = [
-                plt.Line2D([0], [0], marker="s", color="w", markerfacecolor=col, markersize=8, label=val)
+                plt.Line2D(
+                    [0], [0], marker="s", color="w", markerfacecolor=col, markersize=8, label=val
+                )
                 for val, col in mapping.items()
             ]
             g.ax_heatmap.legend(

@@ -8,13 +8,14 @@ from __future__ import annotations
 import os
 import random
 import sys
-from typing import Optional
 
 import numpy as np
+
 __version__ = "0.1.0"
 
 try:
     from loguru import logger
+
     # Configure default logger formatting
     logger.remove()
     logger.add(
@@ -24,6 +25,7 @@ try:
     )
 except ImportError:
     import logging
+
     logger = logging.getLogger("btw")
     logging.basicConfig(
         level=logging.INFO,
@@ -57,6 +59,15 @@ def set_seed(seed: int = 42) -> int:
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
+
+    # Synchronize R random seed if R / rpy2 is available (SRS v2 NFR)
+    try:
+        from btw.r_interop.bridge import is_r_available, set_r_seed
+
+        if is_r_available():
+            set_r_seed(seed)
+    except Exception:
+        pass
 
     logger.info(f"Central random seed set to {seed}")
     return seed

@@ -5,22 +5,25 @@ Provides UpSet plots and Venn diagrams for multi-contrast comparisons using upse
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Optional, Set, Tuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
+
 from btw import logger
 from btw.de_analysis.contrasts import MultiContrastResult
 from btw.viz.style import set_publication_style
 
 try:
     from upsetplot import UpSet, from_contents
+
     HAS_UPSETPLOT = True
 except ImportError:
     HAS_UPSETPLOT = False
 
 try:
     from matplotlib_venn import venn2, venn3
+
     HAS_VENN = True
 except ImportError:
     HAS_VENN = False
@@ -34,11 +37,15 @@ def _extract_deg_sets(
 ) -> Dict[str, Set[str]]:
     """Extract dictionary of gene sets from MultiContrastResult or raw dictionary."""
     if isinstance(source, MultiContrastResult):
-        return source.get_deg_sets(padj_cutoff=padj_cutoff, lfc_cutoff=lfc_cutoff, direction=direction)
+        return source.get_deg_sets(
+            padj_cutoff=padj_cutoff, lfc_cutoff=lfc_cutoff, direction=direction
+        )
     elif isinstance(source, dict):
         return {str(k): set(v) for k, v in source.items()}
     else:
-        raise TypeError(f"Expected MultiContrastResult or dict of sets, got {type(source).__name__}")
+        raise TypeError(
+            f"Expected MultiContrastResult or dict of sets, got {type(source).__name__}"
+        )
 
 
 def plot_upset(
@@ -84,7 +91,9 @@ def plot_upset(
     if not HAS_UPSETPLOT:
         raise ImportError("upsetplot is required for UpSet plots. Run pip install upsetplot.")
 
-    deg_sets = _extract_deg_sets(source, padj_cutoff=padj_cutoff, lfc_cutoff=lfc_cutoff, direction=direction)
+    deg_sets = _extract_deg_sets(
+        source, padj_cutoff=padj_cutoff, lfc_cutoff=lfc_cutoff, direction=direction
+    )
 
     if not deg_sets:
         raise ValueError("No gene sets provided to plot_upset.")
@@ -148,7 +157,9 @@ def plot_venn(
     -------
     tuple of (plt.Figure, plt.Axes)
     """
-    deg_sets = _extract_deg_sets(source, padj_cutoff=padj_cutoff, lfc_cutoff=lfc_cutoff, direction=direction)
+    deg_sets = _extract_deg_sets(
+        source, padj_cutoff=padj_cutoff, lfc_cutoff=lfc_cutoff, direction=direction
+    )
     names = list(deg_sets.keys())
     n_sets = len(names)
 
@@ -174,7 +185,9 @@ def plot_venn(
                 set_colors=("#E64B35", "#4DBBD5", "#00A087"),
             )
         else:
-            raise ValueError(f"Venn diagram supports 2 or 3 sets, but got {n_sets}. Use plot_upset() instead.")
+            raise ValueError(
+                f"Venn diagram supports 2 or 3 sets, but got {n_sets}. Use plot_upset() instead."
+            )
     else:
         # Fallback table visualization if matplotlib-venn not installed
         rows = []
